@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multimodal Fake News Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',sans-serif;background:#f5f6fa;color:#2c3e50;min-height:100vh;display:flex;flex-direction:column}
+    nav{background:#fff;border-bottom:1px solid #e0e3eb;padding:14px 32px;display:flex;align-items:center;gap:12px}
+    nav .logo{font-size:20px;font-weight:700;color:#2c3e50}
+    nav .logo span{color:#3498db}
+    nav .tag{font-size:11px;background:#ebf5fb;color:#2980b9;padding:3px 8px;border-radius:10px;font-weight:600}
+    .wrap{max-width:960px;margin:28px auto;padding:0 20px;width:100%;flex:1}
+    .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#7f8c8d;margin:24px 0 10px}
+    textarea{width:100%;height:140px;padding:14px 16px;border:2px solid #dfe6e9;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;transition:border .2s}
+    textarea:focus{outline:none;border-color:#3498db}
+    .btn-row{display:flex;gap:10px;margin-top:10px}
+    .btn{padding:10px 22px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s,transform .1s}
+    .btn:active{transform:scale(.97)}
+    .btn-primary{background:#3498db;color:#fff}
+    .btn-primary:hover{background:#2980b9}
+    .btn-secondary{background:#ecf0f1;color:#7f8c8d}
+    .btn-secondary:hover{background:#dfe6e9}
+    .result-wrap{display:none;margin-top:20px;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    .verdict{display:flex;align-items:center;gap:18px;margin-bottom:18px}
+    .verdict-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff}
+    .verdict-circle.real{background:#2ecc71}
+    .verdict-circle.fake{background:#e74c3c}
+    .verdict-text .label{font-size:22px;font-weight:700}
+    .verdict-text .conf{font-size:13px;color:#95a5a6}
+    .prob-row{display:flex;gap:16px;margin-bottom:18px}
+    .prob-item{flex:1;background:#f8f9fa;border-radius:8px;padding:10px 14px}
+    .prob-item .name{font-size:11px;text-transform:uppercase;font-weight:600;color:#95a5a6;margin-bottom:4px}
+    .prob-bar{height:6px;border-radius:3px;background:#ecf0f1;overflow:hidden}
+    .prob-bar .fill{height:100%;border-radius:3px;transition:width .6s}
+    .prob-bar .fill.real-fill{background:#2ecc71}
+    .prob-bar .fill.fake-fill{background:#e74c3c}
+    .prob-item .val{font-size:13px;font-weight:600;margin-top:4px}
+    .modality-section{margin-top:14px}
+    .modality-title{font-size:13px;font-weight:600;color:#7f8c8d;margin-bottom:8px}
+    .mod-row{display:flex;gap:12px}
+    .mod-item{flex:1;background:#f8f9fa;border-radius:8px;padding:10px;text-align:center}
+    .mod-item .mod-name{font-size:11px;text-transform:uppercase;font-weight:600;color:#95a5a6;margin-bottom:6px}
+    .mod-item .mod-bar{height:40px;width:30px;margin:0 auto;background:#ecf0f1;border-radius:4px;position:relative;overflow:hidden}
+    .mod-item .mod-fill{position:absolute;bottom:0;width:100%;border-radius:4px;transition:height .6s}
+    .mod-item .mod-val{font-size:12px;font-weight:600;margin-top:4px}
+    .dash{background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06);overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;padding:10px 12px;border-bottom:2px solid #ecf0f1;font-weight:600;color:#7f8c8d;text-transform:uppercase;font-size:11px;letter-spacing:.8px}
+    td{padding:10px 12px;border-bottom:1px solid #f5f5f5}
+    tr:last-child td{border:none}
+    tr.highlight{background:#ebf5fb;font-weight:600}
+    footer{text-align:center;padding:16px;font-size:12px;color:#bdc3c7;background:#fff;border-top:1px solid #e0e3eb}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .note{font-size:12px;color:#95a5a6;margin-top:6px;font-style:italic}
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">Fake<span>Guard</span></div>
+    <div class="tag">Multimodal CNN-BiGRU-Attention</div>
+  </nav>
+
+  <div class="wrap">
+    <div class="section-label">Analyze</div>
+    <textarea id="inp" placeholder="Paste a news article here..."></textarea>
+    <div class="note">Text-only inference: the model uses text embedding with zero-padded image/audio/video channels.</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">Analyze</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('inp').value='';document.getElementById('resWrap').style.display='none'">Clear</button>
+    </div>
+
+    <div class="result-wrap" id="resWrap">
+      <div class="verdict" id="verdict"></div>
+      <div class="prob-row" id="probRow"></div>
+      <div class="modality-section" id="modSection"></div>
+    </div>
+
+    <div class="section-label">Model Dashboard</div>
+    <div class="dash">
+      <table>
+        <thead>
+          <tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>AUC</th></tr>
+        </thead>
+        <tbody>
+          {% for name, m in metrics.items() %}
+          <tr{% if 'hybrid' in name.lower() or 'proposed' in name.lower() or 'cnn' in name.lower() %} class="highlight"{% endif %}>
+            <td>{{ name }}</td>
+            <td>{{ "%.4f"|format(m.accuracy) if m.accuracy is defined else "-" }}</td>
+            <td>{{ "%.4f"|format(m.precision) if m.precision is defined else "-" }}</td>
+            <td>{{ "%.4f"|format(m.recall) if m.recall is defined else "-" }}</td>
+            <td>{{ "%.4f"|format(m.f1) if m.f1 is defined else "-" }}</td>
+            <td>{{ "%.4f"|format(m.auc) if m.auc is defined else "-" }}</td>
+          </tr>
+          {% endfor %}
+          {% if not metrics %}
+          <tr><td colspan="6" style="text-align:center;color:#bbb">No results yet. Run the notebooks first.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Multimodal Fake News Detection &mdash; CNN-BiGRU with Sequential Attention &mdash; University of Windsor</footer>
+
+  <script>
+    const modColors = {Text:'#3498db', Image:'#e74c3c', Audio:'#f39c12', Video:'#2ecc71'};
+    async function analyze(){
+      const text=document.getElementById('inp').value.trim();
+      if(!text)return;
+      const btn=document.getElementById('analyzeBtn');
+      btn.innerHTML='<span class="spinner"></span>Analyzing...';
+      btn.disabled=true;
+      try{
+        const res=await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+        const d=await res.json();
+        if(d.error){alert(d.error);return}
+        document.getElementById('resWrap').style.display='block';
+        document.getElementById('verdict').innerHTML=
+          `<div class="verdict-circle ${d.label.toLowerCase()}">${d.label}</div>
+           <div class="verdict-text"><div class="label">${d.label==='FAKE'?'Likely Fake':'Likely Real'}</div>
+           <div class="conf">${(d.confidence*100).toFixed(1)}% confidence</div></div>`;
+        document.getElementById('probRow').innerHTML=
+          `<div class="prob-item"><div class="name">Real</div>
+             <div class="prob-bar"><div class="fill real-fill" style="width:${d.prob_real*100}%"></div></div>
+             <div class="val">${(d.prob_real*100).toFixed(1)}%</div></div>
+           <div class="prob-item"><div class="name">Fake</div>
+             <div class="prob-bar"><div class="fill fake-fill" style="width:${d.prob_fake*100}%"></div></div>
+             <div class="val">${(d.prob_fake*100).toFixed(1)}%</div></div>`;
+        if(d.modality_attention){
+          const maxW=Math.max(...d.modality_attention.map(m=>m.weight));
+          let html='<div class="modality-title">Modality Attention</div><div class="mod-row">';
+          d.modality_attention.forEach(m=>{
+            const pct=maxW>0?(m.weight/maxW*100):0;
+            const c=modColors[m.modality]||'#95a5a6';
+            html+=`<div class="mod-item"><div class="mod-name">${m.modality}</div>
+              <div class="mod-bar"><div class="mod-fill" style="height:${pct}%;background:${c}"></div></div>
+              <div class="mod-val">${(m.weight*100).toFixed(1)}%</div></div>`;
+          });
+          html+='</div>';
+          document.getElementById('modSection').innerHTML=html;
+        }
+      }catch(e){alert('Error: '+e)}finally{btn.innerHTML='Analyze';btn.disabled=false}
+    }
+    document.getElementById('inp').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')analyze()});
+  </script>
+</body>
+</html>
